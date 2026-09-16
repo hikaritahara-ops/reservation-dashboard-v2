@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>予約経路分析ダッシュボード</title>
+<link rel="stylesheet" href="styles.css" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<div id="loginScreen" class="login-screen hidden">
+  <div class="login-card">
+    <div class="eyebrow">RESERVATION ANALYTICS</div>
+    <h1>予約経路分析ダッシュボード</h1>
+    <p class="muted">パスワードを入力してください</p>
+    <input id="loginPassword" type="password" placeholder="パスワード" />
+    <button id="loginSubmit" class="btn btn-primary">ログイン</button>
+    <p id="loginError" class="error-text hidden">パスワードが違います</p>
+  </div>
+</div>
+
+<div id="app" class="app hidden">
+  <header class="topbar">
+    <div class="brand">
+      <div class="eyebrow">RESERVATION ANALYTICS</div>
+      <h1>予約経路分析ダッシュボード</h1>
+    </div>
+    <nav class="tabs" id="mainTabs">
+      <button class="tab-btn active" data-tab="dashboard">ダッシュボード</button>
+      <button class="tab-btn" data-tab="import">CSV取込</button>
+      <button class="tab-btn" data-tab="settings">設定</button>
+    </nav>
+    <div class="sync-status" id="syncStatus">&nbsp;</div>
+  </header>
+
+  <!-- ===================== ダッシュボード ===================== -->
+  <section id="tab-dashboard" class="tab-panel active">
+    <div class="filter-bar card">
+      <div class="filter-field">
+        <label>店舗</label>
+        <select id="storeFilter" multiple size="6"></select>
+        <button id="storeFilterAll" class="btn btn-ghost btn-sm">全店舗</button>
+      </div>
+      <div class="filter-field">
+        <label>期間（開始月）</label>
+        <input type="month" id="dateFromInput" />
+      </div>
+      <div class="filter-field">
+        <label>期間（終了月）</label>
+        <input type="month" id="dateToInput" />
+      </div>
+      <div class="filter-field">
+        <label>比較</label>
+        <select id="compareModeSelect">
+          <option value="none">比較なし</option>
+          <option value="prev-period">直前の同じ長さの期間と比較</option>
+          <option value="prev-year">前年同月と比較</option>
+        </select>
+      </div>
+      <button id="applyFilters" class="btn btn-primary">表示を更新</button>
+    </div>
+
+    <div class="kpi-grid" id="kpiGrid"></div>
+
+    <div class="chart-grid">
+      <div class="card chart-card">
+        <div class="card-head">
+          <h2>月次推移</h2>
+          <div class="seg-control" id="trendMetricToggle">
+            <button class="seg-btn active" data-metric="count">件数</button>
+            <button class="seg-btn" data-metric="sales">売上</button>
+          </div>
+        </div>
+        <canvas id="trendChart" height="110"></canvas>
+      </div>
+      <div class="card chart-card">
+        <div class="card-head">
+          <h2>経路別内訳</h2>
+        </div>
+        <canvas id="routeChart" height="110"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>経路別サマリー</h2>
+      </div>
+      <div class="table-scroll">
+        <table id="routeTable" class="data-table"></table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>店舗別比較</h2>
+      </div>
+      <div class="table-scroll">
+        <table id="storeTable" class="data-table"></table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== CSV取込 ===================== -->
+  <section id="tab-import" class="tab-panel">
+    <div class="card">
+      <h2>1. Beauty Merit CSV取込</h2>
+      <p class="muted">Beauty Meritでダウンロードした予約CSVを、まとめて選択してください（複数店舗・複数ファイルOK）。</p>
+      <input type="file" id="csvFileInput" accept=".csv" multiple />
+      <div id="importQueue" class="import-queue empty-state">ファイルを選ぶと、ここに店舗名の推定結果が表示されます。</div>
+      <button id="runImport" class="btn btn-primary" disabled>取込実行</button>
+      <div id="importResult" class="import-result"></div>
+    </div>
+  </section>
+
+  <!-- ===================== 設定 ===================== -->
+  <section id="tab-settings" class="tab-panel">
+    <div class="card">
+      <div class="card-head">
+        <h2>店舗マスタ</h2>
+        <button id="addStoreBtn" class="btn btn-ghost btn-sm">+ 店舗を追加</button>
+      </div>
+      <div class="table-scroll"><table id="storeMasterTable" class="data-table"></table></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>店舗名の自動判定ルール</h2>
+      </div>
+      <p class="muted">CSVファイル名に含まれる文字列と、対応する店舗の組み合わせです。取込画面で店舗を確定すると自動で追加されます。</p>
+      <div class="table-scroll"><table id="storeAliasTable" class="data-table"></table></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>予約経路マスタ</h2>
+        <button id="addRouteBtn" class="btn btn-ghost btn-sm">+ 経路を追加</button>
+      </div>
+      <div class="table-scroll"><table id="routeMasterTable" class="data-table"></table></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>未分類の経路表記</h2>
+      </div>
+      <p class="muted">CSVの「予約経路」列にあった表記のうち、まだどの経路にも割り当てられていないものです。正しい経路を選んで割り当ててください。</p>
+      <div class="table-scroll"><table id="unmappedRouteTable" class="data-table"></table></div>
+    </div>
+  </section>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
