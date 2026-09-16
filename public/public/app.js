@@ -74,6 +74,7 @@ function cacheElements() {
     "csvFileInput", "importQueue", "runImport", "importResult",
     "addStoreBtn", "storeMasterTable", "storeAliasTable",
     "addRouteBtn", "routeMasterTable", "unmappedRouteTable",
+    "bulkAddStoreBtn", "bulkAddModal", "bulkAddTextarea", "bulkAddCancel", "bulkAddSubmit", "bulkAddResult",
   ].forEach((id) => { el[id] = $(id); });
 }
 
@@ -105,6 +106,15 @@ function bindEvents() {
 
   el.addStoreBtn.addEventListener("click", onAddStore);
   el.addRouteBtn.addEventListener("click", onAddRoute);
+
+  el.bulkAddStoreBtn.addEventListener("click", () => {
+    el.bulkAddModal.classList.remove("hidden");
+    el.bulkAddResult.textContent = "";
+    el.bulkAddTextarea.value = "";
+    el.bulkAddTextarea.focus();
+  });
+  el.bulkAddCancel.addEventListener("click", () => el.bulkAddModal.classList.add("hidden"));
+  el.bulkAddSubmit.addEventListener("click", onBulkAddStores);
 }
 
 function showLogin() {
@@ -696,6 +706,35 @@ async function deleteStoreRow(id) {
   } catch (e) {
     alert(e.message);
   }
+}
+
+async function onBulkAddStores() {
+  const lines = el.bulkAddTextarea.value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (!lines.length) return;
+
+  el.bulkAddSubmit.disabled = true;
+  const existingNames = new Set(state.stores.map((s) => s.name));
+  const results = [];
+  for (const name of lines) {
+    if (existingNames.has(name)) {
+      results.push(`- ${name}（既に登録済みのためスキップ）`);
+      continue;
+    }
+    try {
+      await api("/api/stores", { method: "POST", body: JSON.stringify({ name }) });
+      existingNames.add(name);
+      results.push(`✅ ${name}`);
+    } catch (e) {
+      results.push(`❌ ${name}: ${e.message}`);
+    }
+  }
+  el.bulkAddSubmit.disabled = false;
+  el.bulkAddResult.textContent = results.join("\n");
+  await loadMasterData();
+  renderSettingsTables();
 }
 
 async function onAddStore() {
